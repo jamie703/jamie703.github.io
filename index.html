@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kalkulator zapotrzebowania kalorycznego</title>
+<!-- Link do biblioteki Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+    }
+    .loader {
+        border: 16px solid #f3f3f3;
+        border-radius: 50%;
+        border-top: 16px solid #3498db;
+        width: 120px;
+        height: 120px;
+        animation: spin 2s linear infinite;
+        margin: 0 auto;
+        display: none;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    .progress-bar-container {
+        width: 100%;
+        height: 30px;
+        background-color: #f1f1f1;
+        margin-bottom: 20px;
+        display: none;
+    }
+    .progress-bar {
+        width: 0%;
+        height: 100%;
+        background-color: #4CAF50;
+        text-align: center;
+        line-height: 30px;
+        color: white;
+    }
+    .steps {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 20px;
+        opacity: 0;
+    }
+    .step {
+        width: 30%;
+        text-align: center;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background-color: #f9f9f9;
+        transition: background-color 0.3s ease;
+    }
+    .step.active {
+        background-color: #4CAF50;
+        color: white;
+    }
+    form {
+        max-width: 400px;
+        margin: 0 auto;
+        background: #f9f9f9;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        display: none;
+        opacity: 0;
+        transform: translateY(20px);
+        transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    form.active {
+        display: block;
+        opacity: 1;
+        transform: translateY(0);
+    }
+    label {
+        display: block;
+        margin-bottom: 8px;
+    }
+    input[type="text"], select {
+        width: calc(100% - 20px);
+        padding: 8px;
+        font-size: 16px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        margin-bottom: 10px;
+    }
+    input[type="submit"] {
+        background-color: #4CAF50;
+        color: white;
+        padding: 12px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+    }
+    input[type="submit"]:hover {
+        background-color: #45a049;
+    }
+    canvas {
+        max-width: 100%;
+        margin-top: 20px;
+        display: none;
+    }
+    .print-button {
+        margin-top: 20px;
+        text-align: center;
+        display: none;
+    }
+    .print-button button {
+        background-color: #008CBA;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+    }
+    .print-button button:hover {
+        background-color: #005f6b;
+    }
+</style>
+</head>
+<body>
+    <div class="loader"></div>
+
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="progressBar">0%</div>
+    </div>
+
+    <div class="steps">
+        <div class="step" id="step1">Krok 1: Dane osobowe</div>
+        <div class="step" id="step2">Krok 2: Poziom aktywności</div>
+        <div class="step" id="step3">Krok 3: Podsumowanie</div>
+    </div>
+
+    <form id="nutritionForm" class="active">
+        <label for="weight">Waga (kg):</label>
+        <input type="text" id="weight" name="weight" required>
+        
+        <label for="height">Wzrost (cm):</label>
+        <input type="text" id="height" name="height" required>
+        
+        <label for="age">Wiek:</label>
+        <input type="text" id="age" name="age" required>
+        
+        <label for="gender">Płeć:</label>
+        <select id="gender" name="gender" required>
+            <option value="male">Mężczyzna</option>
+            <option value="female">Kobieta</option>
+        </select>
+
+        <input type="button" value="Dalej" onclick="nextStep(1)">
+    </form>
+
+    <form id="activityForm">
+        <label for="activityLevel">Poziom aktywności fizycznej:</label>
+        <select id="activityLevel" name="activityLevel" required>
+            <option value="1.2">Brak lub niska aktywność (praca siedząca, brak ćwiczeń)</option>
+            <option value="1.375">Umiarkowana aktywność (ćwiczenia 1-3 razy w tygodniu)</option>
+            <option value="1.55">Regularna aktywność (ćwiczenia 3-5 razy w tygodniu)</option>
+            <option value="1.725">Wysoka aktywność (ćwiczenia codziennie)</option>
+            <option value="1.9">Bardzo wysoka aktywność (ćwiczenia ciężkie, praca fizyczna)</option>
+        </select>
+
+        <input type="button" value="Dalej" onclick="nextStep(2)">
+    </form>
+
+    <div id="summary" style="display: none;">
+        <h2>Podsumowanie:</h2>
+        <p><strong>Waga:</strong> <span id="summaryWeight"></span> kg</p>
+        <p><strong>Wzrost:</strong> <span id="summaryHeight"></span> cm</p>
+        <p><strong>Wiek:</strong> <span id="summaryAge"></span></p>
+        <p><strong>Płeć:</strong> <span id="summaryGender"></span></p>
+        <p><strong>Poziom aktywności:</strong> <span id="summaryActivityLevel"></span></p>
+        <p><strong>Zapotrzebowanie kaloryczne:</strong> <span id="summaryCalories"></span> kcal</p>
+        <input type="button" value="Oblicz" onclick="calculateCaloricNeeds()">
+    </div>
+
+    <canvas id="myChart"></canvas>
+
+    <div class="print-button">
+        <button onclick="printChart()">Drukuj wykres</button>
+    </div>
+
+    <script>
+        var currentStep = 1;
+
+        document.onreadystatechange = function () {
+            var state = document.readyState;
+            if (state == 'interactive') {
+                document.querySelector('.loader').style.display = "block";
+                document.querySelector('body').style.visibility = "hidden";
+            } else if (state == 'complete') {
+                setTimeout(function(){
+                    document.querySelector('.loader').style.display = "none";
+                    document.querySelector('body').style.visibility = "visible";
+                },1000);
+            }
+        }
+
+        function nextStep(step) {
+            if (step === 1) {
+                document.getElementById('nutritionForm').classList.remove('active');
+                document.getElementById('activityForm').classList.add('active');
+                document.getElementById('progressBar').style.width = '33%';
+                document.getElementById('progressBar').textContent = '33%';
+                document.getElementById('step1').classList.remove('active');
+                document.getElementById('step2').classList.add('active');
+                document.getElementById('steps').style.opacity = '1';
+            } else if (step === 2) {
+                document.getElementById('activityForm').classList.remove('active');
+                document.getElementById('summary').style.display = 'block';
+                document.getElementById('progressBar').style.width = '66%';
+                document.getElementById('progressBar').textContent = '66%';
+                document.getElementById('step2').classList.remove('active');
+                document.getElementById('step3').classList.add('active');
+            }
+        }
+
+        function calculateCaloricNeeds() {
+            var weight = parseFloat(document.getElementById('weight').value);
+            var height = parseFloat(document.getElementById('height').value);
+            var age = parseInt(document.getElementById('age').value);
+            var gender = document.getElementById('gender').value;
+            var activityLevel = parseFloat(document.getElementById('activityLevel').value);
+
+            var bmr = calculateBMR(weight, height, age, gender);
+            var totalCalories = calculateTotalCalories(bmr, activityLevel);
+
+            displaySummary(weight, height, age, gender, activityLevel, totalCalories);
+            drawChart(totalCalories);
+        }
+
+        function calculateBMR(weight, height, age, gender) {
+            var bmr = 0;
+            if (gender === 'male') {
+                bmr = 66.47 + (13.75 * weight) + (5.003 * height) - (6.755 * age);
+            } else if (gender === 'female') {
+                bmr = 655.1 + (9.563 * weight) + (1.85 * height) - (4.676 * age);
+            }
+            return bmr;
+        }
+
+        function calculateTotalCalories(bmr, activityLevel) {
+            return bmr * activityLevel;
+        }
+
+        function displaySummary(weight, height, age, gender, activityLevel, calories) {
+            document.getElementById('summaryWeight').textContent = weight;
+            document.getElementById('summaryHeight').textContent = height;
+            document.getElementById('summaryAge').textContent = age;
+            document.getElementById('summaryGender').textContent = (gender === 'male') ? 'Mężczyzna' : 'Kobieta';
+            document.getElementById('summaryActivityLevel').textContent = activityLevel;
+            document.getElementById('summaryCalories').textContent = calories.toFixed(2);
+        }
+
+        function drawChart(calories) {
+            var ctx = document.getElementById('myChart').getContext('2d');
+            var myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Zapotrzebowanie kaloryczne'],
+                    datasets: [{
+                        label: 'Zapotrzebowanie',
+                        data: [calories],
+                        backgroundColor: [
+                            'rgba(54, 162, 235, 0.2)'
+                        ],
+                        borderColor: [
+                            'rgba(54, 162, 235, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            document.getElementById('myChart').style.display = 'block';
+            document.getElementsByClassName('print-button')[0].style.display = 'block';
+        }
+
+        function printChart() {
+            var canvas = document.getElementById('myChart');
+            var win = window.open();
+            win.document.write('<html><head><title>Wykres zapotrzebowania</title></head><body>');
+            win.document.write('<img src="' + canvas.toDataURL() + '" style="width:100%;">');
+            win.document.write('</body></html>');
+            win.document.close();
+            win.print();
+        }
+    </script>
+</body>
+</html>
